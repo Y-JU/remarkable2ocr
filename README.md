@@ -1,6 +1,63 @@
-# Handwritten notes to layout
+# remarkable2ocr
 
-Scan reMarkable `data/xochitl` notebooks → render pages → OCR (Gemini) → layout HTML. **Install to run:** clone → `python -m venv .venv` → `pip install -r requirements.txt` → copy `.env.example` to `.env` and set `GOOGLE_API_KEY` → `python main.py`.
+Turn reMarkable handwritten notes (or any note image) into an **editable layout**: scan notebooks or camera images → OCR with Gemini → interactive HTML with draggable blocks, connectors, and alignment guides.
+
+**Install to run:** clone → `python -m venv .venv` → `pip install -r requirements.txt` → copy `.env.example` to `.env` and set `GOOGLE_API_KEY` → `python main.py`.
+
+---
+
+## Background
+
+- **Input:** Notes from a [reMarkable](https://remarkable.com/) tablet (xochitl data) or photos of handwritten pages (e.g. in `data/xochitl/camera/<project>/`).
+- **Goal:** Preserve structure (lines, boxes, arrows, colors) and make it editable in the browser: move blocks, edit text, add/remove links, group with frames, copy text.
+- **Flow:** Raw data → page images → OCR (text + position + links/shape/color) → cached JSON → multi-page `layout.html` with drag-and-drop and connectors.
+
+---
+
+## Architecture
+
+The pipeline is split into three modules under `src/`, plus config:
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│  main.py                                                                  │
+│  (orchestrates: optional --pull → list/camera → render → OCR → layout)   │
+└─────────────────────────────────────────────────────────────────────────┘
+         │                    │                    │
+         ▼                    ▼                    ▼
+┌─────────────────┐  ┌─────────────────┐  ┌─────────────────────────────┐
+│  src/remarkable │  │   src/ocr       │  │  src/layout                  │
+│  ─────────────  │  │  ─────────────  │  │  ─────────────────────────  │
+│  • list_notebooks│  │  • ocr_image()  │  │  • render_ocr_to_html_multi  │
+│  • render_*_png │  │    (Gemini API, │  │    → layout.html (divs,      │
+│  • pull_xochitl │  │     cache JSON) │  │      links, guides)          │
+│                 │  │                 │  │  • write_ocr_preview_html     │
+│  data/xochitl   │  │  page PNG →     │  │  • render_ocr_overlay        │
+│  → pages/*.png  │  │  ocr/*.json     │  │  (+ chart schema / SVG       │
+│                 │  │                 │  │   for semantic parsing)      │
+└─────────────────┘  └─────────────────┘  └─────────────────────────────┘
+         │                    │                    │
+         └────────────────────┴────────────────────┘
+                              │
+                    ┌─────────┴─────────┐
+                    │  src/config       │
+                    │  .env, DATA_DIR, │
+                    │  GOOGLE_API_KEY, │
+                    │  REMARKABLE_*    │
+                    └──────────────────┘
+```
+
+| Module | Role | Input → Output |
+|--------|------|----------------|
+| **remarkable** | Device data and rendering | `data/xochitl` (or device via `--pull`) → `output/<name>/pages/*.png` |
+| **ocr** | Handwriting recognition | Page image → Gemini → `output/<name>/ocr/page_*.json` (text, y/x ratio, links, shape, color, confidence) |
+| **layout** | Editable UI | OCR JSON (+ page images) → `layout.html`, `.debug/ocr_preview.html`, `ocr_overlay_*.png` |
+| **config** | Environment | `.env` → `DATA_DIR`, `GOOGLE_API_KEY`, `REMARKABLE_HOST`, etc. |
+
+- **Notebook mode:** `list_notebooks()` → for each notebook, `render_notebook_pages()` → for each page, `ocr_image()` → `render_ocr_to_html_multi(all_ocr)`.
+- **Camera mode:** One or more images in `data/xochitl/camera/<project>/` → same OCR + layout pipeline → `output/<project>/`.
+
+---
 
 ## Quick start
 
@@ -26,7 +83,7 @@ python main.py
 - **Force re-OCR:** `python main.py --no-cache`
 - **Pull from reMarkable then process:** `python main.py --pull` (fails if device not connected)
 - **Pull + no cache:** `python main.py --pull --no-cache`
-- **Camera image:** Put an image in `data/xochitl/camera/<name>/` (e.g. one `.jpg` or `.png`), then:
+- **Camera image(s):** Put image(s) in `data/xochitl/camera/<name>/` (e.g. `.jpg` or `.png`), then:
   ```bash
   python main.py --camera <name>
   ```
@@ -49,7 +106,7 @@ For `--pull`, ensure the reMarkable is on the same network (e.g. USB or Wi‑Fi)
 
 - `output/<notebook_or_project>/pages/` — page PNGs
 - `output/<notebook_or_project>/ocr/` — OCR JSON cache (`page_0.json`, …)
-- `output/<notebook_or_project>/layout.html` — multi-page layout (draggable divs, links, alignment guides)
+- `output/<notebook_or_project>/layout.html` — multi-page layout (draggable divs, connectors, alignment guides)
 - `output/<notebook_or_project>/.debug/` — `ocr_preview.html`, `ocr_overlay_*.png`
 
 ## See also
