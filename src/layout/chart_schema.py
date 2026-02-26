@@ -45,12 +45,12 @@ class ChartSchema(TypedDict, total=False):
 
 
 CHART_SCHEMA_INSTRUCTION = """
-输出一个 JSON 对象，包含以下结构（不要假设任何具体领域或用例）：
+Output a single JSON object with the following structure (do not assume any specific domain or use case):
 
-- outline: 数组。每项为 { "level": 1|2|..., "text": "该行文本", "id": "out_0" 等唯一 id }。一级大纲左对齐，level 为 1。
-- containers: 数组。每项为 { "type": "rectangle"|"ellipse"|"longbar", "id": "c0", "label": "框标题（可选）", "lines": ["框内第1行","第2行"] }。
-- arrows: 数组。每项为 { "from_id": "out_0 或 c0 等", "to_id": "目标 id", "style": "solid"|"dashed", "direction": "forward"|"back"|"bidirectional" }。
-- lists: 数组。每项为 { "type": "bullet"|"ordered"|"arrow", "items": [{ "text": "项内容" }] }。
+- outline: array. Each item { "level": 1|2|..., "text": "line text", "id": "out_0" or other unique id }. Top-level outline left-aligned, level 1.
+- containers: array. Each item { "type": "rectangle"|"ellipse"|"longbar", "id": "c0", "label": "box title (optional)", "lines": ["line 1 inside box", "line 2"] }.
+- arrows: array. Each item { "from_id": "out_0 or c0 etc", "to_id": "target id", "style": "solid"|"dashed", "direction": "forward"|"back"|"bidirectional" }.
+- lists: array. Each item { "type": "bullet"|"ordered"|"arrow", "items": [{ "text": "item content" }] }.
 
-只输出一个 JSON 对象，不要其他说明。id 用于箭头起止引用。
+Output only one JSON object, no other text. ids are used for arrow from/to references.
 """

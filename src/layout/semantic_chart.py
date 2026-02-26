@@ -41,11 +41,11 @@ def semantic_parse(
         lines_text.append(f"[{i}] y={y:.2f} x={x:.2f} | {t}")
     ocr_block = "\n".join(lines_text)
 
-    prompt = f"""下面是一页手写笔记的 OCR 结果，每行格式为 [行号] y=垂直比例 x=水平比例 | 识别文本。
-请根据这些行的**位置与文本**，推断出大纲层级、框（矩形/椭圆/长条）、箭头连接、列表类型等**结构**。
+    prompt = f"""Below is the OCR result of one page of handwritten notes. Each line format: [line index] y=vertical ratio x=horizontal ratio | recognized text.
+Infer **structure** from **position and text** of these lines: outline hierarchy, boxes (rectangle/ellipse/longbar), arrow connections, list types, etc.
 {CHART_SCHEMA_INSTRUCTION}
 
-OCR 行（按 y 排序）：
+OCR lines (sorted by y):
 {ocr_block}
 """
 
