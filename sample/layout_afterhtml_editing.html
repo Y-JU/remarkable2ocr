@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OCR Layout</title>
+<style>
+  :root { font-family: sans-serif; font-size: 14px; color: #222; }
+  .layout-section { margin-bottom: 2rem; }
+  .layout-section-title { font-size: 1rem; margin: 0 0 0.5rem 0; color: #555; }
+  .ocr-page-wrap { position: relative; width: 100%; max-width: 720px; margin: 0 auto; aspect-ratio: 3/4; max-height: 90vh; }
+  .ocr-page {
+    position: absolute; left: 0; top: 0; right: 0; bottom: 0;
+    background: #fafafa;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    box-sizing: border-box;
+  }
+  .ocr-arrows { position: absolute; left: 0; top: 0; width: 100%; height: 100%; border-radius: 8px; pointer-events: none; }
+  .ocr-arrows .arrow-paths { pointer-events: none; }
+  .ocr-line, .ocr-block {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    white-space: nowrap;
+    padding: 3px 8px;
+    line-height: 1.4;
+    cursor: grab;
+    user-select: none;
+    outline: none;
+  }
+  .ocr-line:active, .ocr-block:active { cursor: grabbing; }
+  .ocr-block.ocr-shape-box { border: 2px solid #333; border-radius: 4px; background: rgba(255,255,255,0.9); }
+  .ocr-block.ocr-shape-circle { border: 2px solid #333; border-radius: 50%; background: rgba(255,255,255,0.9); padding: 6px 10px; }
+  .save-bar { position: fixed; top: 0; left: 0; right: 0; padding: 8px 16px; background: #333; color: #fff; z-index: 1000; }
+  .save-bar button { padding: 6px 12px; cursor: pointer; background: #0af; color: #fff; border: none; border-radius: 4px; }
+  .conn-menu { position: fixed; z-index: 1001; background: #fff; border: 1px solid #ccc; border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); padding: 4px 0; min-width: 140px; }
+  .conn-menu-sub { min-width: 180px; }
+  .conn-menu-item { padding: 6px 12px; cursor: pointer; font-size: 13px; }
+  .conn-menu-item:hover { background: #f0f0f0; }
+  .conn-menu-add { border-top: 1px solid #eee; margin-top: 2px; }
+  .ocr-line.selected, .ocr-block.selected { outline: 2px solid #0af; outline-offset: 2px; }
+  .ocr-selection-box { position: absolute; border: 2px dashed #0af; background: rgba(0,170,255,0.08); pointer-events: none; z-index: 10; }
+  .ocr-guides { position: absolute; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; z-index: 20; }
+  .ocr-guide-line { position: absolute; background: none; }
+  .ocr-guide-line.v { left: 0; top: 0; bottom: 0; width: 0; border-left: 1px dashed #999; }
+  .ocr-guide-line.h { left: 0; top: 0; right: 0; height: 0; border-top: 1px dashed #999; }
+  .ocr-block.ocr-frame { border: 2px solid #333; border-radius: 4px; background: rgba(255,255,255,0.5); box-sizing: border-box; min-width: 40px; min-height: 24px; }
+  .ocr-guides-toggle { position: absolute; top: 8px; right: 8px; z-index: 30; pointer-events: auto; }
+  .ocr-guides-toggle label { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #555; cursor: pointer; user-select: none; background: rgba(255,255,255,0.95); padding: 4px 8px; border-radius: 4px; border: 1px solid #ddd; }
+  .ocr-guides-toggle input { margin: 0; }
+</style>
+</head>
+<body>
+<div class="save-bar"><button type="button" id="save-layout-btn">保存坐标与文字到 HTML</button></div>
+<div style="height: 44px;"></div>
+<section class="layout-section">
+  <h2 class="layout-section-title">Page 1</h2>
+  <div class="ocr-page-wrap">
+    <div class="ocr-guides-toggle"><label><input type="checkbox" class="ocr-guides-checkbox"> 辅助线</label></div>
+    <div class="ocr-page" id="ocr-page-0" data-page="0"><div class="ocr-block ocr-shape-box ocr-frame" data-index="38" data-links="[]" contenteditable="false" style="left: 50.38%; top: 36.81%; width: 12.5069%; height: 12.9084%;"></div>
+<div class="ocr-line" data-index="0" data-links="[1,2,3,4,5,6,7]" style="left:35.98%;top:5.00%;" contenteditable="false">① 需求 -&gt; PRD -&gt; LLM分析 (有效的 context?)</div>
+<div class="ocr-line" data-index="1" data-links="[]" style="left: 70.01%; top: 8.75%;" contenteditable="false">-&gt; 市场竞争</div>
+<div class="ocr-line" data-index="2" data-links="[]" style="left: 70.6%; top: 11.72%;" contenteditable="false">-&gt; 合规 (安全)</div>
+<div class="ocr-line" data-index="3" data-links="[]" style="left: 70.01%; top: 15.31%;" contenteditable="false">-&gt; 技术架构</div>
+<div class="ocr-block ocr-shape-box" data-index="4" data-links="[39]" data-shape="box" style="left: 28.46%; top: 15.52%;" contenteditable="false">uz Design</div>
+<div class="ocr-line" data-index="5" data-links="[]" style="left: 70.35%; top: 18.28%;" contenteditable="false">-&gt; 质量风险</div>
+<div class="ocr-line" data-index="6" data-links="[]" style="left: 76.39%; top: 21.25%;" contenteditable="false">-&gt; 历史数据 (实验策略)</div>
+<div class="ocr-line" data-index="7" data-links="[]" style="left: 71.38%; top: 24.22%;" contenteditable="false">(Bug也是数据)</div>
+<div class="ocr-line" data-index="8" data-links="[]" style="left:67.21%;top:29.20%;" contenteditable="false">服务端</div>
+<div class="ocr-line" data-index="9" data-links="[]" style="left: 18.57%; top: 29.2%;" contenteditable="false">② 实现.</div>
+<div class="ocr-block ocr-line" data-index="10" data-links="[]" style="left: 49.62%; top: 33.84%;" contenteditable="false">HTTPS</div>
+<div class="ocr-line" data-index="11" data-links="[]" style="left: 71.91%; top: 33.35%;" contenteditable="false">① Service / 存储</div>
+<div class="ocr-line" data-index="12" data-links="[]" style="left: 35.49%; top: 34.24%;" contenteditable="false">① View</div>
+<div class="ocr-line" data-index="13" data-links="[12,17,18]" style="left: 13.18%; top: 37.21%;" contenteditable="false">Spec driven-Development</div>
+<div class="ocr-line" data-index="14" data-links="[]" style="left:95.00%;top:36.32%;" contenteditable="false"><br></div>
+<div class="ocr-block ocr-line" data-index="15" data-links="[]" style="left: 49.47%; top: 36.81%;" contenteditable="false">socket</div>
+<div class="ocr-line" data-index="16" data-links="[]" style="left: 74.33%; top: 37.21%;" contenteditable="false">② dependency (Algo)</div>
+<div class="ocr-line" data-index="17" data-links="[]" style="left: 35.49%; top: 38.29%;" contenteditable="false">② model</div>
+<div class="ocr-line" data-index="18" data-links="[]" style="left: 37.02%; top: 40.76%;" contenteditable="false">③ Controller</div>
+<div class="ocr-block ocr-line" data-index="19" data-links="[]" style="left: 48.33%; top: 39.78%;" contenteditable="false">SSE</div>
+<div class="ocr-line" data-index="20" data-links="[]" style="left: 74.33%; top: 40.76%;" contenteditable="false">③ deployment (DCs)</div>
+<div class="ocr-block ocr-line" data-index="21" data-links="[]" style="left: 50.81%; top: 44.73%;" contenteditable="false">实时通信协议</div>
+<div class="ocr-block ocr-shape-box" data-index="22" data-links="[]" data-shape="box" style="left: 49.47%; top: 47.93%;" contenteditable="false">Infra: networking/security/perf/Dependency mgr</div>
+<div class="ocr-line" data-index="23" data-links="[]" style="left: 35.49%; top: 56.27%;" contenteditable="false">- 代码风险评估 =&gt; 哪里最有风险？</div>
+<div class="ocr-line" data-index="24" data-links="[]" data-color="red" style="left: 57.48%; top: 56.27%; color: red;" contenteditable="false">(静态检测)</div>
+<div class="ocr-line" data-index="25" data-links="[]" style="left: 71.91%; top: 56.27%;" contenteditable="false">各种Lint, blackduck</div>
+<div class="ocr-line" data-index="26" data-links="[]" style="left: 41.48%; top: 59.24%;" contenteditable="false">- 单元测试 / 系统测试 / 集成测试 / 自动化测试?</div>
+<div class="ocr-line" data-index="27" data-links="[]" style="left: 29.86%; top: 62.21%;" contenteditable="false">- 部署验证 (冒烟测试)</div>
+<div class="ocr-line" data-index="28" data-links="[]" style="left: 22.2%; top: 67.83%;" contenteditable="false">③ 线上验证回收</div>
+<div class="ocr-line" data-index="29" data-links="[]" style="left: 36.95%; top: 70.8%;" contenteditable="false">① logging/monitoring/user feedback</div>
+<div class="ocr-line" data-index="30" data-links="[]" style="left: 26.68%; top: 74.25%;" contenteditable="false">② AB实验结果</div>
+<div class="ocr-line" data-index="31" data-links="[]" style="left: 42.76%; top: 74.25%;" contenteditable="false">③ 流量回收与性能</div>
+<div class="ocr-line" data-index="32" data-links="[]" style="left: 25.12%; top: 77.22%;" contenteditable="false">④ 可观测的现象与循环</div>
+<div class="ocr-line" data-index="33" data-links="[]" style="left: 33.55%; top: 81.66%;" contenteditable="false">- 实时运行时，是需要去保持一致性</div>
+<div class="ocr-line" data-index="34" data-links="[]" style="left: 35.49%; top: 84.63%;" contenteditable="false">- 代码一致性：需要一致性，设计一致性</div>
+<div class="ocr-line" data-index="35" data-links="[]" style="left: 34.24%; top: 87.6%;" contenteditable="false">- LLM 感知真实信号 (比如我的A代码</div>
+<div class="ocr-line" data-index="36" data-links="[]" style="left: 62.83%; top: 87.6%;" contenteditable="false">LLM 是否知道我真改了)</div>
+<div class="ocr-block ocr-shape-box" data-index="37" data-links="[]" data-shape="box" data-color="red" style="left: 39.15%; top: 94.77%; color: red;" contenteditable="false">如何保持Ground truth, 谁才能作为Ground truth?</div>
+    <div class="ocr-line" data-index="39" data-links="[8]" contenteditable="false" style="left: 35.49%; top: 29.2%;">客户端</div></div>
+    <svg class="ocr-arrows" id="arrows-0" viewBox="0 0 100 100" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg"><g class="arrow-paths" pointer-events="none"><path d="M 58.034939236111114 5.104158171817943 C 60.20203993055556 5.104158171817943, 61.285590277777786 8.845516079049665, 63.45269097222223 8.845516079049665" stroke="#333" stroke-width="0.22" fill="none" data-from="0" data-to="1"></path><path d="M 58.034939236111114 5.104158171817943 C 60.04926215277778 5.104158171817943, 61.056423611111114 11.808519313888059, 63.07074652777778 11.808519313888059" stroke="#333" stroke-width="0.22" fill="none" data-from="0" data-to="2"></path><path d="M 58.034939236111114 5.104158171817943 C 60.20203993055556 5.104158171817943, 61.285590277777786 15.390400594412881, 63.45269097222223 15.390400594412881" stroke="#333" stroke-width="0.22" fill="none" data-from="0" data-to="3"></path><path d="M 36.018880208333336 6.588378140828735 C 33.018880208333336 6.588378140828735, 31.518880208333336 13.883527695472134, 28.518880208333336 13.883527695472134" stroke="#333" stroke-width="0.22" fill="none" data-from="0" data-to="4"></path><path d="M 58.034939236111114 5.104158171817943 C 60.337890625 5.104158171817943, 61.48936631944445 18.353403829251274, 63.792317708333336 18.353403829251274" stroke="#333" stroke-width="0.22" fill="none" data-from="0" data-to="5"></path><path d="M 58.034939236111114 5.104158171817943 C 60.80316840277778 5.104158171817943, 62.18728298611111 21.316407064089667, 64.95551215277777 21.316407064089667" stroke="#333" stroke-width="0.22" fill="none" data-from="0" data-to="6"></path><path d="M 58.034939236111114 5.104158171817943 C 60.37912326388889 5.104158171817943, 61.55121527777778 24.279410298928063, 63.89539930555556 24.279410298928063" stroke="#333" stroke-width="0.22" fill="none" data-from="0" data-to="7"></path><path d="M 28.518880208333336 17.31589963845924 C 31.323133680555557 17.31589963845924, 32.725260416666664 27.763430922155475, 35.529513888888886 27.763430922155475" stroke="#333" stroke-width="0.22" fill="none" data-from="4" data-to="39"></path><path d="M 26.14691840277778 37.23960457045514 C 28.079427083333332 37.23960457045514, 29.04568142361111 34.27569521841955, 30.978190104166664 34.27569521841955" stroke="#333" stroke-width="0.22" fill="none" data-from="13" data-to="12"></path><path d="M 26.14691840277778 37.23960457045514 C 27.841579861111114 37.23960457045514, 28.68891059027778 38.31697791792391, 30.383572048611114 38.31697791792391" stroke="#333" stroke-width="0.22" fill="none" data-from="13" data-to="17"></path><path d="M 26.14691840277778 37.23960457045514 C 27.770399305555557 37.23960457045514, 28.582139756944443 40.78071057710605, 30.20562065972222 40.78071057710605" stroke="#333" stroke-width="0.22" fill="none" data-from="13" data-to="18"></path><path d="M 39.557291666666664 29.247650891166266 C 48.98784722222222 29.247650891166266, 53.703125 29.247650891166266, 63.13368055555556 29.247650891166266" stroke="#333" stroke-width="0.22" fill="none" data-from="39" data-to="8"></path></g></svg>
+  <div class="ocr-guides"></div></div>
+</section>
+<script>
+(function() {
+  var ns = "http://www.w3.org/2000/svg";
+  var DRAG_THRESHOLD = 5;
+  var ARROW_STROKE = 0.22;
+  var SNAP_THRESHOLD = 1.5;
+
+  function pctToNum(s) { return parseFloat(s) || 0; }
+  function numToPct(n) { return (Math.max(0, Math.min(100, n))).toFixed(2) + "%"; }
+
+  function rectToViewBox(rect, wrapRect) {
+    return {
+      left: (rect.left - wrapRect.left) / wrapRect.width * 100,
+      right: (rect.right - wrapRect.left) / wrapRect.width * 100,
+      top: (rect.top - wrapRect.top) / wrapRect.height * 100,
+      bottom: (rect.bottom - wrapRect.top) / wrapRect.height * 100,
+      cx: (rect.left + rect.width / 2 - wrapRect.left) / wrapRect.width * 100,
+      cy: (rect.top + rect.height / 2 - wrapRect.top) / wrapRect.height * 100
+    };
+  }
+  function edgePoints(v) {
+    var cx = (v.left + v.right) / 2, cy = (v.top + v.bottom) / 2;
+    return { top: [cx, v.top], bottom: [cx, v.bottom], left: [v.left, cy], right: [v.right, cy] };
+  }
+  function pickEndpoints(v1, v2) {
+    var p1 = edgePoints(v1), p2 = edgePoints(v2);
+    var cx1 = v1.cx, cy1 = v1.cy, cx2 = v2.cx, cy2 = v2.cy;
+    var dx = cx2 - cx1, dy = cy2 - cy1;
+    var fromPt, toPt;
+    if (Math.abs(dx) >= Math.abs(dy)) {
+      if (dx > 0) { fromPt = p1.right; toPt = p2.left; }
+      else { fromPt = p1.left; toPt = p2.right; }
+    } else {
+      if (dy > 0) { fromPt = p1.bottom; toPt = p2.top; }
+      else { fromPt = p1.top; toPt = p2.bottom; }
+    }
+    return { from: fromPt, to: toPt };
+  }
+
+  function updateArrows(pageEl) {
+    var wrap = pageEl.closest(".ocr-page-wrap");
+    var svg = wrap ? wrap.querySelector(".ocr-arrows") : null;
+    if (!svg || !wrap) return;
+    var pathGroup = svg.querySelector(".arrow-paths") || (function() {
+      var g = document.createElementNS(ns, "g");
+    g.setAttribute("class", "arrow-paths");
+    g.setAttribute("pointer-events", "none");
+    svg.appendChild(g);
+    return g;
+    })();
+    pathGroup.innerHTML = "";
+    var wrapRect = wrap.getBoundingClientRect();
+    var byIndex = {};
+    pageEl.querySelectorAll("[data-index]").forEach(function(el) {
+      var i = parseInt(el.getAttribute("data-index"), 10);
+      if (!isNaN(i)) byIndex[i] = el;
+    });
+    pageEl.querySelectorAll("[data-links]").forEach(function(fromEl) {
+      var linksStr = fromEl.getAttribute("data-links");
+      if (!linksStr) return;
+      var links = [];
+      try { links = JSON.parse(linksStr); } catch(e) { return; }
+      var r1 = fromEl.getBoundingClientRect();
+      var v1 = rectToViewBox(r1, wrapRect);
+      links.forEach(function(toIndex) {
+        var toEl = byIndex[toIndex];
+        if (!toEl) return;
+        var r2 = toEl.getBoundingClientRect();
+        var v2 = rectToViewBox(r2, wrapRect);
+        var pts = pickEndpoints(v1, v2);
+        var x1 = pts.from[0], y1 = pts.from[1], x2 = pts.to[0], y2 = pts.to[1];
+        x1 = Math.max(0, Math.min(100, x1));
+        y1 = Math.max(0, Math.min(100, y1));
+        x2 = Math.max(0, Math.min(100, x2));
+        y2 = Math.max(0, Math.min(100, y2));
+        var cpx1 = x1 + (x2 - x1) * 0.4;
+        var cpy1 = y1;
+        var cpx2 = x2 - (x2 - x1) * 0.4;
+        var cpy2 = y2;
+        var d = "M " + x1 + " " + y1 + " C " + cpx1 + " " + cpy1 + ", " + cpx2 + " " + cpy2 + ", " + x2 + " " + y2;
+        var path = document.createElementNS(ns, "path");
+        path.setAttribute("d", d);
+        path.setAttribute("stroke", "#333");
+        path.setAttribute("stroke-width", ARROW_STROKE);
+        path.setAttribute("fill", "none");
+        path.setAttribute("data-from", fromEl.getAttribute("data-index"));
+        path.setAttribute("data-to", toIndex);
+        pathGroup.appendChild(path);
+      });
+    });
+    refreshStaticGuidesForPage(pageEl);
+  }
+
+  var pages = document.querySelectorAll(".ocr-page");
+  var dragging = null;
+  var pending = null;
+  var startX, startY, startLeft, startTop;
+  var selectedSet = new Set();
+  var boxSelecting = null;
+
+  function setSelection(els) {
+    document.querySelectorAll(".ocr-line.selected, .ocr-block.selected").forEach(function(el) { el.classList.remove("selected"); });
+    selectedSet.clear();
+    (els || []).forEach(function(el) {
+      if (el && (el.classList.contains("ocr-line") || el.classList.contains("ocr-block"))) {
+        el.classList.add("selected");
+        selectedSet.add(el);
+      }
+    });
+  }
+  function getSelectedOnPage(page) {
+    var list = [];
+    selectedSet.forEach(function(el) { if (el.closest(".ocr-page") === page) list.push(el); });
+    return list;
+  }
+  function rectsIntersect(r1, r2) {
+    return !(r1.right < r2.left || r1.left > r2.right || r1.bottom < r2.top || r1.top > r2.bottom);
+  }
+
+  function getSnapAndGuides(page, moveEls, proposedDx, proposedDy, pageRect) {
+    var moveSet = new Set();
+    moveEls.forEach(function(o) { moveSet.add(o.el); });
+    var others = [];
+    page.querySelectorAll(".ocr-line, .ocr-block").forEach(function(el) {
+      if (moveSet.has(el)) return;
+      var left = pctToNum(el.style.left);
+      var top = pctToNum(el.style.top);
+      var r = el.getBoundingClientRect();
+      var w = r.width / pageRect.width * 100;
+      var h = r.height / pageRect.height * 100;
+      others.push({ leftEdge: left - w/2, rightEdge: left + w/2, topEdge: top - h/2, bottomEdge: top + h/2, cx: left, cy: top });
+    });
+    var snapDxCandidates = [];
+    var snapDyCandidates = [];
+    var guideX = null;
+    var guideY = null;
+    moveEls.forEach(function(o) {
+      var left = o.startLeft + proposedDx;
+      var top = o.startTop + proposedDy;
+      var le = left - o.widthPct/2, re = left + o.widthPct/2, te = top - o.heightPct/2, be = top + o.heightPct/2;
+      others.forEach(function(ot) {
+        if (Math.abs(le - ot.leftEdge) <= SNAP_THRESHOLD) { snapDxCandidates.push({ dx: ot.leftEdge + o.widthPct/2 - o.startLeft, gx: ot.leftEdge }); }
+        if (Math.abs(le - ot.rightEdge) <= SNAP_THRESHOLD) { snapDxCandidates.push({ dx: ot.rightEdge + o.widthPct/2 - o.startLeft, gx: ot.rightEdge }); }
+        if (Math.abs(left - ot.cx) <= SNAP_THRESHOLD) { snapDxCandidates.push({ dx: ot.cx - o.startLeft, gx: ot.cx }); }
+        if (Math.abs(re - ot.leftEdge) <= SNAP_THRESHOLD) { snapDxCandidates.push({ dx: ot.leftEdge - o.widthPct/2 - o.startLeft, gx: ot.leftEdge }); }
+        if (Math.abs(re - ot.rightEdge) <= SNAP_THRESHOLD) { snapDxCandidates.push({ dx: ot.rightEdge - o.widthPct/2 - o.startLeft, gx: ot.rightEdge }); }
+        if (Math.abs(te - ot.topEdge) <= SNAP_THRESHOLD) { snapDyCandidates.push({ dy: ot.topEdge + o.heightPct/2 - o.startTop, gy: ot.topEdge }); }
+        if (Math.abs(te - ot.bottomEdge) <= SNAP_THRESHOLD) { snapDyCandidates.push({ dy: ot.bottomEdge + o.heightPct/2 - o.startTop, gy: ot.bottomEdge }); }
+        if (Math.abs(top - ot.cy) <= SNAP_THRESHOLD) { snapDyCandidates.push({ dy: ot.cy - o.startTop, gy: ot.cy }); }
+        if (Math.abs(be - ot.topEdge) <= SNAP_THRESHOLD) { snapDyCandidates.push({ dy: ot.topEdge - o.heightPct/2 - o.startTop, gy: ot.topEdge }); }
+        if (Math.abs(be - ot.bottomEdge) <= SNAP_THRESHOLD) { snapDyCandidates.push({ dy: ot.bottomEdge - o.heightPct/2 - o.startTop, gy: ot.bottomEdge }); }
+      });
+    });
+    var dx = proposedDx, dy = proposedDy;
+    if (snapDxCandidates.length > 0) {
+      snapDxCandidates.sort(function(a, b) { return Math.abs(a.dx - proposedDx) - Math.abs(b.dx - proposedDx); });
+      dx = snapDxCandidates[0].dx;
+      guideX = snapDxCandidates[0].gx;
+    }
+    if (snapDyCandidates.length > 0) {
+      snapDyCandidates.sort(function(a, b) { return Math.abs(a.dy - proposedDy) - Math.abs(b.dy - proposedDy); });
+      dy = snapDyCandidates[0].dy;
+      guideY = snapDyCandidates[0].gy;
+    }
+    return { dx: dx, dy: dy, guideX: guideX, guideY: guideY };
+  }
+
+  function showGuides(wrap, guideX, guideY) {
+    var container = wrap.querySelector(".ocr-guides");
+    if (!container) {
+      container = document.createElement("div");
+      container.className = "ocr-guides";
+      wrap.appendChild(container);
+    }
+    container.innerHTML = "";
+    if (guideX != null) {
+      var v = document.createElement("div");
+      v.className = "ocr-guide-line v";
+      v.style.left = guideX + "%";
+      container.appendChild(v);
+    }
+    if (guideY != null) {
+      var h = document.createElement("div");
+      h.className = "ocr-guide-line h";
+      h.style.top = guideY + "%";
+      container.appendChild(h);
+    }
+  }
+  function clearAllGuides() {
+    document.querySelectorAll(".ocr-guides").forEach(function(c) { c.innerHTML = ""; });
+  }
+
+  function updateStaticGuides(pageEl) {
+    var wrap = pageEl.closest(".ocr-page-wrap");
+    if (!wrap) return;
+    var container = wrap.querySelector(".ocr-guides");
+    if (!container) {
+      container = document.createElement("div");
+      container.className = "ocr-guides";
+      wrap.appendChild(container);
+    }
+    container.innerHTML = "";
+    var step = 12;
+    var seenX = {}, seenY = {};
+    for (var x = 0; x <= 100; x += step) { seenX[x] = true; }
+    seenX[50] = true;
+    for (var y = 0; y <= 100; y += step) { seenY[y] = true; }
+    seenY[50] = true;
+    Object.keys(seenX).forEach(function(x) {
+      var v = document.createElement("div");
+      v.className = "ocr-guide-line v";
+      v.style.left = x + "%";
+      container.appendChild(v);
+    });
+    Object.keys(seenY).forEach(function(y) {
+      var h = document.createElement("div");
+      h.className = "ocr-guide-line h";
+      h.style.top = y + "%";
+      container.appendChild(h);
+    });
+  }
+
+  function refreshStaticGuidesForPage(pageEl) {
+    var wrap = pageEl && pageEl.closest(".ocr-page-wrap");
+    if (!wrap) return;
+    var cb = wrap.querySelector(".ocr-guides-checkbox");
+    if (cb && cb.checked) updateStaticGuides(pageEl);
+  }
+
+  function clearGuidesForWrap(wrap) {
+    var c = wrap && wrap.querySelector(".ocr-guides");
+    if (c) c.innerHTML = "";
+  }
+
+  function nextIndex(page) {
+    var max = -1;
+    page.querySelectorAll("[data-index]").forEach(function(el) {
+      var i = parseInt(el.getAttribute("data-index"), 10);
+      if (!isNaN(i) && i > max) max = i;
+    });
+    return max + 1;
+  }
+
+  function bindBlockEvents(page, el) {
+    el.addEventListener("mousedown", function(e) {
+      if (e.button !== 0) return;
+      if (e.target !== el && !el.contains(e.target)) return;
+      e.preventDefault();
+      startX = e.clientX;
+      startY = e.clientY;
+      startLeft = pctToNum(el.style.left);
+      startTop = pctToNum(el.style.top);
+      pending = { el: el, page: page };
+    });
+    el.addEventListener("dblclick", function(e) {
+      e.preventDefault();
+      this.setAttribute("contenteditable", "true");
+      this.focus();
+      if (window.getSelection) {
+        var r = document.createRange();
+        r.selectNodeContents(this);
+        window.getSelection().removeAllRanges();
+        window.getSelection().addRange(r);
+      }
+    });
+    el.addEventListener("blur", function() { this.setAttribute("contenteditable", "false"); });
+  }
+
+  function addDivAt(page, leftPct, topPct, text, shape) {
+    var idx = nextIndex(page);
+    var div = document.createElement("div");
+    if (shape === "box") div.className = "ocr-block ocr-shape-box";
+    else if (shape === "circle") div.className = "ocr-block ocr-shape-circle";
+    else div.className = "ocr-line";
+    div.setAttribute("data-index", idx);
+    div.setAttribute("data-links", "[]");
+    div.style.left = numToPct(leftPct);
+    div.style.top = numToPct(topPct);
+    div.contentEditable = "false";
+    div.textContent = text || "新块";
+    page.appendChild(div);
+    bindBlockEvents(page, div);
+    return div;
+  }
+
+  function addFrameAroundSelection(page) {
+    var list = getSelectedOnPage(page);
+    if (list.length < 2) return;
+    var pr = page.getBoundingClientRect();
+    var minL = 100, maxR = 0, minT = 100, maxB = 0;
+    list.forEach(function(el) {
+      var l = pctToNum(el.style.left);
+      var t = pctToNum(el.style.top);
+      var r = el.getBoundingClientRect();
+      var w = r.width / pr.width * 100;
+      var h = r.height / pr.height * 100;
+      minL = Math.min(minL, l - w/2);
+      maxR = Math.max(maxR, l + w/2);
+      minT = Math.min(minT, t - h/2);
+      maxB = Math.max(maxB, t + h/2);
+    });
+    var pad = 2;
+    minL -= pad; maxR += pad; minT -= pad; maxB += pad;
+    var cx = (minL + maxR) / 2;
+    var cy = (minT + maxB) / 2;
+    var w = maxR - minL;
+    var h = maxB - minT;
+    var idx = nextIndex(page);
+    var frame = document.createElement("div");
+    frame.className = "ocr-block ocr-shape-box ocr-frame";
+    frame.setAttribute("data-index", idx);
+    frame.setAttribute("data-links", "[]");
+    frame.style.left = numToPct(cx);
+    frame.style.top = numToPct(cy);
+    frame.style.width = w + "%";
+    frame.style.height = h + "%";
+    frame.contentEditable = "false";
+    frame.textContent = "";
+    page.insertBefore(frame, page.firstChild);
+    bindBlockEvents(page, frame);
+    setSelection([]);
+    updateArrows(page);
+    return frame;
+  }
+
+  function pointInSelectionBox(clientX, clientY, page) {
+    var list = getSelectedOnPage(page);
+    if (list.length < 2) return false;
+    var pr = page.getBoundingClientRect();
+    var minL = 1e9, maxR = -1e9, minT = 1e9, maxB = -1e9;
+    list.forEach(function(el) {
+      var r = el.getBoundingClientRect();
+      minL = Math.min(minL, r.left);
+      maxR = Math.max(maxR, r.right);
+      minT = Math.min(minT, r.top);
+      maxB = Math.max(maxB, r.bottom);
+    });
+    var x = clientX, y = clientY;
+    return x >= minL && x <= maxR && y >= minT && y <= maxB;
+  }
+
+  function showConnMenu(div, page, clientX, clientY) {
+    var menu = document.createElement("div");
+    menu.className = "conn-menu";
+    menu.style.left = clientX + "px";
+    menu.style.top = clientY + "px";
+
+    var toRemove = selectedSet.size > 0 ? Array.from(selectedSet).filter(function(el) { return el.closest(".ocr-page") === page; }) : [div];
+    var delItem = document.createElement("div");
+    delItem.className = "conn-menu-item";
+    delItem.textContent = toRemove.length > 1 ? "删除选中的块 (" + toRemove.length + ")" : "删除此块";
+    delItem.addEventListener("click", function() {
+      var removedIndices = {};
+      toRemove.forEach(function(el) {
+        var i = parseInt(el.getAttribute("data-index"), 10);
+        if (!isNaN(i)) removedIndices[i] = true;
+        selectedSet.delete(el);
+        if (el.parentNode) el.parentNode.removeChild(el);
+      });
+      page.querySelectorAll("[data-links]").forEach(function(el) {
+        var links = [];
+        try { links = JSON.parse(el.getAttribute("data-links") || "[]"); } catch(x) {}
+        links = links.filter(function(i) { return !removedIndices[i]; });
+        el.setAttribute("data-links", JSON.stringify(links));
+      });
+      setSelection([]);
+      updateArrows(page);
+      if (menu.parentNode) menu.parentNode.removeChild(menu);
+      document.removeEventListener("click", closeMenu);
+    });
+    menu.appendChild(delItem);
+
+    if (div.classList.contains("ocr-shape-box") || div.classList.contains("ocr-shape-circle")) {
+      var noBorderItem = document.createElement("div");
+      noBorderItem.className = "conn-menu-item";
+      noBorderItem.textContent = "删除边框";
+      noBorderItem.addEventListener("click", function() {
+        div.classList.remove("ocr-shape-box", "ocr-shape-circle");
+        div.classList.add("ocr-line");
+        div.removeAttribute("data-shape");
+        if (menu.parentNode) menu.parentNode.removeChild(menu);
+        document.removeEventListener("click", closeMenu);
+      });
+      menu.appendChild(noBorderItem);
+    }
+
+    if (selectedSet.size >= 2 && selectedSet.has(div)) {
+      var frameItem = document.createElement("div");
+      frameItem.className = "conn-menu-item";
+      frameItem.textContent = "添加外框组合";
+      frameItem.addEventListener("click", function() {
+        addFrameAroundSelection(page);
+        if (menu.parentNode) menu.parentNode.removeChild(menu);
+        document.removeEventListener("click", closeMenu);
+      });
+      menu.appendChild(frameItem);
+    }
+
+    var linksStr = div.getAttribute("data-links");
+    var links = [];
+    if (linksStr) { try { links = JSON.parse(linksStr); } catch(x) {} }
+    var myIndex = parseInt(div.getAttribute("data-index"), 10);
+    var byIndex = {};
+    page.querySelectorAll("[data-index]").forEach(function(el2) {
+      var i = parseInt(el2.getAttribute("data-index"), 10);
+      if (!isNaN(i)) byIndex[i] = el2;
+    });
+    if (links.length > 0) {
+      links.forEach(function(toIdx) {
+        var toEl = byIndex[toIdx];
+        var label = (toEl && toEl.textContent) ? toEl.textContent.slice(0, 20) : ("#" + toIdx);
+        var item = document.createElement("div");
+        item.className = "conn-menu-item";
+        item.textContent = "删除到 " + label + " 的连线";
+        item.addEventListener("click", function() {
+          var cur = [];
+          try { cur = JSON.parse(div.getAttribute("data-links") || "[]"); } catch(x) {}
+          cur = cur.filter(function(i) { return i !== toIdx; });
+          div.setAttribute("data-links", JSON.stringify(cur));
+          updateArrows(page);
+          if (menu.parentNode) menu.parentNode.removeChild(menu);
+          document.removeEventListener("click", closeMenu);
+        });
+        menu.appendChild(item);
+      });
+      var allItem = document.createElement("div");
+      allItem.className = "conn-menu-item";
+      allItem.textContent = "删除全部连线";
+      allItem.addEventListener("click", function() {
+        div.setAttribute("data-links", "[]");
+        updateArrows(page);
+        if (menu.parentNode) menu.parentNode.removeChild(menu);
+        document.removeEventListener("click", closeMenu);
+      });
+      menu.appendChild(allItem);
+    }
+    var addItem = document.createElement("div");
+    addItem.className = "conn-menu-item conn-menu-add";
+    addItem.textContent = "添加连线 →";
+    addItem.addEventListener("click", function(e) {
+      e.stopPropagation();
+      if (menu.parentNode) menu.parentNode.removeChild(menu);
+      document.removeEventListener("click", closeMenu);
+      var pageEl = div.closest(".ocr-page");
+      if (!pageEl) return;
+      var sub = document.createElement("div");
+      sub.className = "conn-menu conn-menu-sub";
+      sub.style.left = (clientX + 160) + "px";
+      sub.style.top = clientY + "px";
+      var curLinks = [];
+      try { curLinks = JSON.parse(div.getAttribute("data-links") || "[]"); } catch(x) {}
+      pageEl.querySelectorAll("[data-index]").forEach(function(el2) {
+        var toIdx = parseInt(el2.getAttribute("data-index"), 10);
+        if (isNaN(toIdx) || toIdx === myIndex) return;
+        var label = (el2.textContent || "").trim().slice(0, 24) || ("#" + toIdx);
+        if (curLinks.indexOf(toIdx) >= 0) label = "✓ " + label;
+        var item = document.createElement("div");
+        item.className = "conn-menu-item";
+        item.textContent = label;
+        item.addEventListener("click", function() {
+          var cur = [];
+          try { cur = JSON.parse(div.getAttribute("data-links") || "[]"); } catch(x) {}
+          if (cur.indexOf(toIdx) < 0) cur.push(toIdx);
+          div.setAttribute("data-links", JSON.stringify(cur));
+          updateArrows(div.closest(".ocr-page"));
+          if (sub.parentNode) sub.parentNode.removeChild(sub);
+          document.removeEventListener("click", closeSub);
+        });
+        sub.appendChild(item);
+      });
+      if (sub.childNodes.length === 0) {
+        var empty = document.createElement("div");
+        empty.className = "conn-menu-item";
+        empty.textContent = "（本页无其他块）";
+        sub.appendChild(empty);
+      }
+      document.body.appendChild(sub);
+      function closeSub(ev) {
+        if (!sub.parentNode) return;
+        if (!sub.contains(ev.target)) {
+          sub.parentNode.removeChild(sub);
+          document.removeEventListener("click", closeSub);
+        }
+      }
+      setTimeout(function() { document.addEventListener("click", closeSub); }, 0);
+    });
+    menu.appendChild(addItem);
+    document.body.appendChild(menu);
+    function closeMenu(ev) {
+      if (!menu.parentNode) return;
+      if (!menu.contains(ev.target)) {
+        menu.parentNode.removeChild(menu);
+        document.removeEventListener("click", closeMenu);
+      }
+    }
+    setTimeout(function() { document.addEventListener("click", closeMenu); }, 0);
+  }
+
+  function showEmptyMenu(wrap, page, clientX, clientY) {
+    var menu = document.createElement("div");
+    menu.className = "conn-menu";
+    menu.style.left = clientX + "px";
+    menu.style.top = clientY + "px";
+    var addBlockItem = document.createElement("div");
+    addBlockItem.className = "conn-menu-item";
+    addBlockItem.textContent = "在此处添加文字块";
+    addBlockItem.addEventListener("click", function() {
+      var wr = wrap.getBoundingClientRect();
+      var leftPct = (clientX - wr.left) / wr.width * 100;
+      var topPct = (clientY - wr.top) / wr.height * 100;
+      var newEl = addDivAt(page, leftPct, topPct, "新块", "");
+      updateArrows(page);
+      if (menu.parentNode) menu.parentNode.removeChild(menu);
+      document.removeEventListener("click", closeMenu);
+      newEl.setAttribute("contenteditable", "true");
+      newEl.focus();
+      if (window.getSelection) {
+        var r = document.createRange();
+        r.selectNodeContents(newEl);
+        window.getSelection().removeAllRanges();
+        window.getSelection().addRange(r);
+      }
+    });
+    menu.appendChild(addBlockItem);
+    if (selectedSet.size >= 2 && pointInSelectionBox(clientX, clientY, page)) {
+      var frameItem = document.createElement("div");
+      frameItem.className = "conn-menu-item";
+      frameItem.textContent = "添加外框组合";
+      frameItem.addEventListener("click", function() {
+        addFrameAroundSelection(page);
+        if (menu.parentNode) menu.parentNode.removeChild(menu);
+        document.removeEventListener("click", closeMenu);
+      });
+      menu.appendChild(frameItem);
+    }
+    document.body.appendChild(menu);
+    function closeMenu(ev) {
+      if (!menu.parentNode) return;
+      if (!menu.contains(ev.target)) {
+        menu.parentNode.removeChild(menu);
+        document.removeEventListener("click", closeMenu);
+      }
+    }
+    setTimeout(function() { document.addEventListener("click", closeMenu); }, 0);
+  }
+
+  document.addEventListener("contextmenu", function(e) {
+    var wrap = null;
+    var el = e.target;
+    while (el && el !== document.body) {
+      if (el.classList && el.classList.contains("ocr-page-wrap")) { wrap = el; break; }
+      el = el.parentNode;
+    }
+    if (!wrap) return;
+    var div = null;
+    var els = document.elementsFromPoint ? document.elementsFromPoint(e.clientX, e.clientY) : [];
+    if (els.length === 0 && document.elementFromPoint) {
+      var one = document.elementFromPoint(e.clientX, e.clientY);
+      if (one) els = [one];
+    }
+    if (els.length === 0) els = [e.target];
+    for (var i = 0; i < els.length; i++) {
+      var x = els[i];
+      if (x.closest && x.closest(".ocr-arrows")) continue;
+      if (x.classList && (x.classList.contains("ocr-line") || x.classList.contains("ocr-block"))) { div = x; break; }
+      if (x.closest) { var d = x.closest(".ocr-line, .ocr-block"); if (d) { div = d; break; } }
+    }
+    if (div && div.closest(".ocr-page-wrap") === wrap) {
+      e.preventDefault();
+      e.stopPropagation();
+      var page = div.closest(".ocr-page");
+      showConnMenu(div, page, e.clientX, e.clientY);
+    } else if (wrap) {
+      var page = wrap.querySelector(".ocr-page");
+      if (page) {
+        e.preventDefault();
+        e.stopPropagation();
+        showEmptyMenu(wrap, page, e.clientX, e.clientY);
+      }
+    }
+  }, true);
+
+  pages.forEach(function(page) {
+    page.addEventListener("mousedown", function(e) {
+      if (e.button !== 0) return;
+      if (e.target !== page) return;
+      e.preventDefault();
+      var wrap = page.closest(".ocr-page-wrap");
+      var wr = wrap.getBoundingClientRect();
+      var sx = e.clientX - wr.left;
+      var sy = e.clientY - wr.top;
+      var box = document.createElement("div");
+      box.className = "ocr-selection-box";
+      box.style.left = sx + "px";
+      box.style.top = sy + "px";
+      box.style.width = "0";
+      box.style.height = "0";
+      wrap.appendChild(box);
+      boxSelecting = { wrap: wrap, page: page, startX: e.clientX, startY: e.clientY, box: box };
+    });
+    var nodes = page.querySelectorAll(".ocr-line, .ocr-block");
+    nodes.forEach(function(el) {
+      el.addEventListener("mousedown", function(e) {
+        if (e.button !== 0) return;
+        if (e.target !== el && !el.contains(e.target)) return;
+        e.preventDefault();
+        startX = e.clientX;
+        startY = e.clientY;
+        startLeft = pctToNum(el.style.left);
+        startTop = pctToNum(el.style.top);
+        pending = { el: el, page: page };
+      });
+      el.addEventListener("dblclick", function(e) {
+        e.preventDefault();
+        this.setAttribute("contenteditable", "true");
+        this.focus();
+        if (window.getSelection) {
+          var r = document.createRange();
+          r.selectNodeContents(this);
+          window.getSelection().removeAllRanges();
+          window.getSelection().addRange(r);
+        }
+      });
+      el.addEventListener("blur", function() {
+        this.setAttribute("contenteditable", "false");
+      });
+    });
+    updateArrows(page);
+  });
+
+  document.querySelectorAll(".ocr-guides-checkbox").forEach(function(cb) {
+    cb.addEventListener("change", function() {
+      var wrap = this.closest(".ocr-page-wrap");
+      var page = wrap && wrap.querySelector(".ocr-page");
+      if (this.checked) updateStaticGuides(page);
+      else clearGuidesForWrap(wrap);
+    });
+  });
+
+  document.addEventListener("mousemove", function(e) {
+    if (boxSelecting) {
+      var wr = boxSelecting.wrap.getBoundingClientRect();
+      var minX = Math.min(boxSelecting.startX, e.clientX);
+      var maxX = Math.max(boxSelecting.startX, e.clientX);
+      var minY = Math.min(boxSelecting.startY, e.clientY);
+      var maxY = Math.max(boxSelecting.startY, e.clientY);
+      boxSelecting.box.style.left = (minX - wr.left) + "px";
+      boxSelecting.box.style.top = (minY - wr.top) + "px";
+      boxSelecting.box.style.width = (maxX - minX) + "px";
+      boxSelecting.box.style.height = (maxY - minY) + "px";
+      return;
+    }
+    if (pending && !dragging) {
+      var dx = e.clientX - startX;
+      var dy = e.clientY - startY;
+      if (dx*dx + dy*dy > DRAG_THRESHOLD * DRAG_THRESHOLD) {
+        dragging = pending;
+        pending = null;
+        var page = dragging.page;
+        var moveEls = [];
+        if (selectedSet.has(dragging.el)) {
+          getSelectedOnPage(page).forEach(function(el) {
+            var r = el.getBoundingClientRect();
+            var pr = page.getBoundingClientRect();
+            moveEls.push({ el: el, startLeft: pctToNum(el.style.left), startTop: pctToNum(el.style.top), widthPct: r.width / pr.width * 100, heightPct: r.height / pr.height * 100 });
+          });
+        } else {
+          setSelection([dragging.el]);
+          var el = dragging.el;
+          var r = el.getBoundingClientRect();
+          var pr = page.getBoundingClientRect();
+          moveEls = [{ el: el, startLeft: pctToNum(el.style.left), startTop: pctToNum(el.style.top), widthPct: r.width / pr.width * 100, heightPct: r.height / pr.height * 100 }];
+        }
+        dragging.moveEls = moveEls;
+        startX = e.clientX;
+        startY = e.clientY;
+      }
+    }
+    if (!dragging) return;
+    e.preventDefault();
+    var page = dragging.page;
+    var rect = page.getBoundingClientRect();
+    var proposedDx = (e.clientX - startX) / rect.width * 100;
+    var proposedDy = (e.clientY - startY) / rect.height * 100;
+    var snap = getSnapAndGuides(page, dragging.moveEls, proposedDx, proposedDy, rect);
+    var dx = snap.dx, dy = snap.dy;
+    dragging.moveEls.forEach(function(o) {
+      o.el.style.left = numToPct(o.startLeft + dx);
+      o.el.style.top = numToPct(o.startTop + dy);
+    });
+    var wrap = page.closest(".ocr-page-wrap");
+    showGuides(wrap, snap.guideX, snap.guideY);
+    updateArrows(page);
+  });
+
+  document.addEventListener("mouseup", function(e) {
+    if (boxSelecting) {
+      var boxRect = boxSelecting.box.getBoundingClientRect();
+      var hits = [];
+      boxSelecting.page.querySelectorAll(".ocr-line, .ocr-block").forEach(function(el) {
+        if (rectsIntersect(el.getBoundingClientRect(), boxRect)) hits.push(el);
+      });
+      setSelection(hits);
+      if (boxSelecting.box.parentNode) boxSelecting.box.parentNode.removeChild(boxSelecting.box);
+      boxSelecting = null;
+    }
+    if (pending && !dragging) {
+      if (e.button === 0) {
+        if (e.ctrlKey || e.metaKey) {
+          if (selectedSet.has(pending.el)) {
+            selectedSet.delete(pending.el);
+            pending.el.classList.remove("selected");
+          } else {
+            selectedSet.add(pending.el);
+            pending.el.classList.add("selected");
+          }
+        } else setSelection([pending.el]);
+      }
+    }
+    var draggedPage = dragging ? dragging.page : null;
+    dragging = null;
+    pending = null;
+    clearAllGuides();
+    if (draggedPage) refreshStaticGuidesForPage(draggedPage);
+    document.querySelectorAll(".ocr-guides-checkbox:checked").forEach(function(cb) {
+      var wrap = cb.closest(".ocr-page-wrap");
+      var page = wrap && wrap.querySelector(".ocr-page");
+      if (page) updateStaticGuides(page);
+    });
+  });
+  document.addEventListener("mouseleave", function() { dragging = null; pending = null; clearAllGuides(); document.querySelectorAll(".ocr-guides-checkbox:checked").forEach(function(cb) { var wrap = cb.closest(".ocr-page-wrap"); var page = wrap && wrap.querySelector(".ocr-page"); if (page) updateStaticGuides(page); }); if (boxSelecting) { if (boxSelecting.box.parentNode) boxSelecting.box.parentNode.removeChild(boxSelecting.box); boxSelecting = null; } });
+
+  document.getElementById("save-layout-btn").addEventListener("click", function() {
+    var html = "<!DOCTYPE html>\n" + document.documentElement.outerHTML;
+    var blob = new Blob([html], { type: "text/html;charset=utf-8" });
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "layout.html";
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
+})();
+</script>
+
+
+</body></html>
