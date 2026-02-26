@@ -5,7 +5,7 @@ Scan reMarkable `data/xochitl` notebooks → render pages → OCR (Gemini) → l
 ## Quick start
 
 ```bash
-git clone <repo> && cd awesome-reMarkable
+git clone https://github.com/caucyj/remarkable2ocr.git && cd remarkable2ocr
 python -m venv .venv
 source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
@@ -51,3 +51,7 @@ For `--pull`, ensure the reMarkable is on the same network (e.g. USB or Wi‑Fi)
 - `output/<notebook_or_project>/ocr/` — OCR JSON cache (`page_0.json`, …)
 - `output/<notebook_or_project>/layout.html` — multi-page layout (draggable divs, links, alignment guides)
 - `output/<notebook_or_project>/.debug/` — `ocr_preview.html`, `ocr_overlay_*.png`
+
+## See also
+
+- [awesome-reMarkable](https://github.com/reHackable/awesome-reMarkable) — A curated list of projects related to the reMarkable tablet (APIs, cloud tools, GUI clients, templates, and more). Useful for discovering other tools and integrations.

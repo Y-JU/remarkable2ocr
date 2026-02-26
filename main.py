@@ -75,8 +75,8 @@ def main() -> int:
             return 1
 
     if not data_dir.is_dir():
-        logger.error("Data directory does not exist: %s (set DATA_DIR or create data/xochitl)", data_dir)
-        return 1
+        data_dir.mkdir(parents=True, exist_ok=True)
+        logger.info("Created data directory: %s", data_dir)
 
     output_root = _ROOT / "output"
     output_root.mkdir(parents=True, exist_ok=True)
@@ -94,56 +94,63 @@ def _run_camera_mode(
     project_name: str,
     use_ocr_cache: bool,
 ) -> int:
-    """Process a single image from data/xochitl/camera/<project_name>/."""
+    """Process all images in data/xochitl/camera/<project_name>/."""
     camera_dir = data_dir / "camera" / project_name
     if not camera_dir.is_dir():
-        logger.error("Camera directory not found: %s", camera_dir)
-        return 1
+        camera_dir.mkdir(parents=True, exist_ok=True)
+        logger.info("Created camera project directory: %s", camera_dir)
     images = sorted(
         p for p in camera_dir.iterdir()
         if p.is_file() and p.suffix.lower() in IMAGE_EXTENSIONS
     )
     if not images:
-        logger.error("No image found in %s (supported: %s)", camera_dir, ", ".join(IMAGE_EXTENSIONS))
+        logger.error(
+            "No image found in %s (supported: %s). Add a .png or .jpg file and run again.",
+            camera_dir, ", ".join(IMAGE_EXTENSIONS),
+        )
         return 1
-    image_path = images[0]
     out_dir = output_root / project_name
     pages_dir = out_dir / "pages"
     ocr_dir = out_dir / "ocr"
     pages_dir.mkdir(parents=True, exist_ok=True)
     ocr_dir.mkdir(parents=True, exist_ok=True)
-    page_0 = pages_dir / "page_0.png"
-    if image_path.suffix.lower() == ".png":
-        shutil.copy2(image_path, page_0)
-    else:
-        try:
-            from PIL import Image
-            Image.open(image_path).convert("RGB").save(page_0, "PNG")
-        except Exception:
-            shutil.copy2(image_path, page_0)
-    logger.info("Camera project: %s -> %s (image: %s)", project_name, out_dir, image_path.name)
+    logger.info("Camera project: %s -> %s (%d image(s))", project_name, out_dir, len(images))
     t0 = time.perf_counter()
-    try:
-        ocr_lines = ocr_image(
-            page_0,
-            ocr_dir,
-            cache_key="page_0",
-            return_confidence=True,
-            use_cache=use_ocr_cache,
-        )
-    except Exception as e:
-        logger.warning("OCR failed: %s", e)
-        cache_file = ocr_dir / "page_0.json"
-        if cache_file.is_file():
-            try:
-                ocr_lines = json.loads(cache_file.read_text(encoding="utf-8"))
-            except Exception:
-                ocr_lines = []
+    page_paths: list[Path] = []
+    for i, image_path in enumerate(images):
+        page_path = pages_dir / f"page_{i}.png"
+        if image_path.suffix.lower() == ".png":
+            shutil.copy2(image_path, page_path)
         else:
-            ocr_lines = []
-    elapsed = time.perf_counter() - t0
-    logger.info("  OCR page_0 done in %.2fs", elapsed)
-    all_ocr = [ocr_lines]
+            try:
+                from PIL import Image
+                Image.open(image_path).convert("RGB").save(page_path, "PNG")
+            except Exception:
+                shutil.copy2(image_path, page_path)
+        page_paths.append(page_path)
+    all_ocr: list[list[dict]] = []
+    for i, p_path in enumerate(page_paths):
+        t_page = time.perf_counter()
+        try:
+            ocr_lines = ocr_image(
+                p_path,
+                ocr_dir,
+                cache_key=f"page_{i}",
+                return_confidence=True,
+                use_cache=use_ocr_cache,
+            )
+            all_ocr.append(ocr_lines)
+        except Exception as e:
+            logger.warning("  OCR page_%d failed: %s", i, e)
+            cache_file = ocr_dir / f"page_{i}.json"
+            if cache_file.is_file():
+                try:
+                    all_ocr.append(json.loads(cache_file.read_text(encoding="utf-8")))
+                except Exception:
+                    all_ocr.append([])
+            else:
+                all_ocr.append([])
+        logger.info("  Page %d/%d OCR done in %.2fs", i + 1, len(page_paths), time.perf_counter() - t_page)
     debug_dir = out_dir / ".debug"
     if all_ocr:
         debug_dir.mkdir(parents=True, exist_ok=True)
@@ -152,17 +159,20 @@ def _run_camera_mode(
             logger.info("  .debug: ocr_preview.html")
         except Exception as e:
             logger.warning("  Failed to write ocr_preview.html: %s", e)
-        try:
-            render_ocr_overlay(ocr_lines, page_0, debug_dir / "ocr_overlay_0.png")
-            logger.info("  .debug: ocr_overlay_0.png")
-        except Exception as e:
-            logger.warning("  Failed to write ocr_overlay_0.png: %s", e)
+        for i, (ocr_lines, p_path) in enumerate(zip(all_ocr, page_paths)):
+            if not ocr_lines:
+                continue
+            try:
+                render_ocr_overlay(ocr_lines, p_path, debug_dir / f"ocr_overlay_{i}.png")
+                logger.info("  .debug: ocr_overlay_%d.png", i)
+            except Exception as e:
+                logger.warning("  Failed to write ocr_overlay_%d.png: %s", i, e)
     if not all_ocr:
         logger.warning("No OCR result, skipping layout")
         return 0
     try:
         render_ocr_to_html_multi(all_ocr, out_dir / "layout.html")
-        logger.info("Layout: layout.html (1 page)")
+        logger.info("Layout: layout.html (%d page(s))", len(all_ocr))
     except Exception as e:
         logger.warning("Layout failed: %s", e)
     logger.info("Camera project %s completed in %.2fs", project_name, time.perf_counter() - t0)

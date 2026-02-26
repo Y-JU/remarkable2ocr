@@ -665,6 +665,30 @@ def render_ocr_to_html_multi(
     }});
     menu.appendChild(delItem);
 
+    var copyItem = document.createElement("div");
+    copyItem.className = "conn-menu-item";
+    copyItem.textContent = toRemove.length > 1 ? "Copy text (" + toRemove.length + " blocks)" : "Copy text";
+    copyItem.addEventListener("click", function() {{
+      var parts = [];
+      toRemove.forEach(function(el) {{ parts.push((el.innerText || el.textContent || "").trim()); }});
+      var text = parts.join("\\n");
+      if (navigator.clipboard && navigator.clipboard.writeText) {{
+        navigator.clipboard.writeText(text).then(function() {{ if (menu.parentNode) menu.parentNode.removeChild(menu); document.removeEventListener("click", closeMenu); }}).catch(function() {{}});
+      }} else {{
+        var ta = document.createElement("textarea");
+        ta.value = text;
+        ta.style.position = "fixed";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.select();
+        try {{ document.execCommand("copy"); }} catch(x) {{}}
+        document.body.removeChild(ta);
+        if (menu.parentNode) menu.parentNode.removeChild(menu);
+        document.removeEventListener("click", closeMenu);
+      }}
+    }});
+    menu.appendChild(copyItem);
+
     if (div.classList.contains("ocr-shape-box") || div.classList.contains("ocr-shape-circle")) {{
       var noBorderItem = document.createElement("div");
       noBorderItem.className = "conn-menu-item";
