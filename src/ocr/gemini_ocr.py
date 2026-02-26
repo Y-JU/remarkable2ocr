@@ -33,7 +33,7 @@ def _image_to_structured_ocr_impl(
     *,
     api_key: str,
     model_name: str = "gemini-2.5-flash",
-    language_hint: str = "中英文",
+    language_hint: str = "Chinese and English",
     request_confidence: bool = True,
 ) -> list[dict[str, Any]]:
     from google import genai
@@ -45,16 +45,16 @@ def _image_to_structured_ocr_impl(
 
     client = genai.Client(api_key=api_key)
 
-    confidence_instruction = '\n对每一项增加字段 "confidence"，表示该行识别的置信度：0.0~1.0 或 "high"/"medium"/"low"。' if request_confidence else ""
+    confidence_instruction = '\nAdd a "confidence" field to each item: 0.0–1.0 or "high"/"medium"/"low".' if request_confidence else ""
 
-    prompt = f"""这是一页手写笔记的图片。请识别图中所有手写文字（可能包含{language_hint}），按**行**输出为 JSON 数组，且尽量保持与图中一致的**上下顺序**。
-每项格式：{{ "text": "该行原文", "y_ratio": 0.0~1.0, "x_ratio": 0.0~1.0 }}。y_ratio 表示该行在整页中的垂直相对位置（0=页顶，1=页底），x_ratio 表示水平相对位置（0=页左，1=页右）。
-若能从图中看出**行与行之间的关系**（如箭头指向、流程顺序、上下级、并列），请为该项增加 "links" 字段，值为**行号数组**（从 0 开始，表示该行指向或连接到的其他行的下标）。例如第 0 行指向第 1、2 行则 "links": [1, 2]。没有明确关系可省略 links。
-若某行文字被**框住**或**圈住**，请增加 "shape" 字段，值为 "box"（矩形框）或 "circle"（椭圆/圆）；没有框圈则省略。
-若图中某行使用了**不同颜色**（如红、蓝、绿），请增加 "color" 字段，值为 CSS 颜色名或十六进制（如 "red"、"#c00"）；默认黑色可省略。
-只输出一个 JSON 数组，不要其他说明。{confidence_instruction}
+    prompt = f"""This is an image of a handwritten note. Recognize all handwritten text (may include {language_hint}) and output a JSON array by **line**, preserving the **vertical order** as in the image.
+Each item: {{ "text": "the line content", "y_ratio": 0.0–1.0, "x_ratio": 0.0–1.0 }}. y_ratio = vertical position (0=top, 1=bottom), x_ratio = horizontal position (0=left, 1=right).
+If you can see **relationships between lines** (arrows, flow, hierarchy, list), add "links" as an array of **zero-based line indices** this line points to (e.g. line 0 points to 1 and 2 → "links": [1, 2]). Omit if no clear relationship.
+If a line is **inside a box or circle**, add "shape": "box" (rectangle) or "circle" (ellipse/circle). Omit otherwise.
+If a line uses a **different color** (e.g. red, blue, green), add "color" as a CSS color name or hex (e.g. "red", "#c00"). Omit for default black.
+Output only one JSON array, no other text.{confidence_instruction}
 
-示例：[{{ "text": "需求", "y_ratio": 0.15, "x_ratio": 0.2, "links": [1, 2], "shape": "box" }}, {{ "text": "实现", "y_ratio": 0.3, "x_ratio": 0.2, "color": "blue" }}, ...]
+Example: [{{ "text": "Requirement", "y_ratio": 0.15, "x_ratio": 0.2, "links": [1, 2], "shape": "box" }}, {{ "text": "Implementation", "y_ratio": 0.3, "x_ratio": 0.2, "color": "blue" }}, ...]
 """
     contents = [
         types.Part.from_bytes(data=data, mime_type=mime),
