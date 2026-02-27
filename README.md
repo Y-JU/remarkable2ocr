@@ -88,6 +88,12 @@ python main.py
   python main.py --camera <name>
   ```
   Output goes to `output/<name>/`. Optional: `--camera <name> --no-cache`
+- **Export to XMind mind map:** Add `--xmind` to also generate `project_name.xmind` (or `notebook_name.xmind`) from the OCR layout; link relationships become parent-child in the mind map.
+  ```bash
+  python main.py --camera test_camera --xmind
+  python main.py --xmind
+  ```
+- **Process a single project (notebook):** `python main.py --project PROJECT_NAME` processes only the notebook whose safe name equals `PROJECT_NAME`. If no such notebook exists in `data/xochitl` and there is no OCR cache under `output/PROJECT_NAME/`, the program exits with code 1 and a friendly message suggesting to check names or use `--camera PROJECT_NAME` for a camera project.
 
 ## Environment
 

@@ -21,7 +21,7 @@ if str(_ROOT) not in sys.path:
 from src.config import load_env, get_data_dir
 from src.remarkable import list_notebooks, render_notebook_pages, pull_xochitl
 from src.ocr import ocr_image
-from src.layout import write_ocr_preview_html, render_ocr_overlay, render_ocr_to_html_multi
+from src.layout import write_ocr_preview_html, render_ocr_overlay, render_ocr_to_html_multi, build_xmind
 
 logging.basicConfig(
     level=logging.INFO,
@@ -39,6 +39,23 @@ def _safe_notebook_name(name: str) -> str:
     s = s.strip() or "unnamed"
     s = re.sub(r"\s+", "_", s)
     return s[:200]
+
+
+def _log_project_not_found(project_name: str, output_root: Path, data_dir: Path) -> None:
+    """Emit a friendly error when --project name is not found and there is no output cache."""
+    out_dir = output_root / project_name
+    has_cache = out_dir.is_dir() and any((out_dir / "ocr").glob("*.json"))
+    logger.error(
+        "Project '%s' not found. No notebook in data/xochitl has (safe) name '%s'.",
+        project_name, project_name,
+    )
+    if not has_cache:
+        logger.error(
+            "No existing OCR cache at output/%s/. List notebooks in data/xochitl or use --camera %s for a camera project.",
+            project_name, project_name,
+        )
+    else:
+        logger.error("You have cached output at output/%s/ but no matching notebook in data/xochitl.", project_name)
 
 
 def main() -> int:
@@ -60,6 +77,17 @@ def main() -> int:
         metavar="PROJECT_NAME",
         default=None,
         help="Run OCR on a single image in data/xochitl/camera/PROJECT_NAME/ and output to output/PROJECT_NAME/",
+    )
+    parser.add_argument(
+        "--xmind",
+        action="store_true",
+        help="After generating layout.html, also export OCR structure to project_name.xmind (mind map)",
+    )
+    parser.add_argument(
+        "--project",
+        metavar="PROJECT_NAME",
+        default=None,
+        help="Process only this project (notebook with matching safe name). Fails with a friendly message if not found and no cache at output/PROJECT_NAME/.",
     )
     args = parser.parse_args()
     use_ocr_cache = not args.no_cache
@@ -83,9 +111,9 @@ def main() -> int:
     logger.info("Data dir: %s, output root: %s", data_dir, output_root)
 
     if args.camera is not None:
-        return _run_camera_mode(data_dir, output_root, args.camera, use_ocr_cache)
+        return _run_camera_mode(data_dir, output_root, args.camera, use_ocr_cache, args.xmind)
 
-    return _run_notebook_mode(data_dir, output_root, use_ocr_cache)
+    return _run_notebook_mode(data_dir, output_root, use_ocr_cache, args.xmind, args.project)
 
 
 def _run_camera_mode(
@@ -93,6 +121,7 @@ def _run_camera_mode(
     output_root: Path,
     project_name: str,
     use_ocr_cache: bool,
+    use_xmind: bool = False,
 ) -> int:
     """Process all images in data/xochitl/camera/<project_name>/."""
     camera_dir = data_dir / "camera" / project_name
@@ -175,17 +204,39 @@ def _run_camera_mode(
         logger.info("Layout: layout.html (%d page(s))", len(all_ocr))
     except Exception as e:
         logger.warning("Layout failed: %s", e)
+    if use_xmind:
+        try:
+            xmind_path = build_xmind(all_ocr, out_dir / f"{project_name}.xmind", sheet_title=project_name)
+            logger.info("XMind: %s", xmind_path.name)
+        except Exception as e:
+            logger.warning("XMind export failed: %s", e)
     logger.info("Camera project %s completed in %.2fs", project_name, time.perf_counter() - t0)
     logger.info("Output: %s", output_root)
     return 0
 
 
-def _run_notebook_mode(data_dir: Path, output_root: Path, use_ocr_cache: bool) -> int:
-    """Scan notebooks and process each (existing flow)."""
+def _run_notebook_mode(
+    data_dir: Path,
+    output_root: Path,
+    use_ocr_cache: bool,
+    use_xmind: bool = False,
+    project_name_filter: str | None = None,
+) -> int:
+    """Scan notebooks and process each (or only project_name_filter if set)."""
     notebooks = list_notebooks(data_dir)
     if not notebooks:
+        if project_name_filter:
+            _log_project_not_found(project_name_filter, output_root, data_dir)
+            return 1
         logger.warning("No notebooks found")
         return 0
+
+    if project_name_filter is not None:
+        matching = [nb for nb in notebooks if _safe_notebook_name(nb.visible_name) == project_name_filter]
+        if not matching:
+            _log_project_not_found(project_name_filter, output_root, data_dir)
+            return 1
+        notebooks = matching
 
     total_notebooks = len(notebooks)
     for idx, nb in enumerate(notebooks):
@@ -261,6 +312,12 @@ def _run_notebook_mode(data_dir: Path, output_root: Path, use_ocr_cache: bool) -
             logger.info("  Layout: layout.html (%d pages)", len(all_ocr))
         except Exception as e:
             logger.warning("  Layout failed: %s", e)
+        if use_xmind:
+            try:
+                xmind_path = build_xmind(all_ocr, out_dir / f"{safe_name}.xmind", sheet_title=safe_name)
+                logger.info("  XMind: %s", xmind_path.name)
+            except Exception as e:
+                logger.warning("  XMind export failed: %s", e)
 
         logger.info("  Notebook completed in %.2fs", time.perf_counter() - nb_start)
 
