@@ -32,3 +32,4 @@ data/.gemini_cache/
 # Sample images (keep local only; may contain sensitive content)
 sample/expected.png
 sample/source.png
+output/Testing/satisfaction.gitignore
