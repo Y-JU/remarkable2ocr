@@ -1,8 +1,8 @@
 # remarkable2ocr
 
-Turn reMarkable handwritten notes (or any note image) into an **editable layout**: scan notebooks or camera images → OCR with Gemini → interactive HTML with draggable blocks, connectors, and alignment guides.
+Turn reMarkable handwritten notes (or any note image) into an **editable layout**: scan notebooks or camera images → OCR with OpenAI SDK (OpenAI, DeepSeek, etc.) → interactive HTML with draggable blocks, connectors, and alignment guides.
 
-**Install to run:** clone → `python -m venv .venv` → `pip install -r requirements.txt` → copy `.env.example` to `.env` and set `GOOGLE_API_KEY` → `python main.py`.
+**Install to run:** clone → `python -m venv .venv` → `pip install -r requirements.txt` → copy `.env.example` to `.env` and set `OCR_API_KEY` → `python main.py`.
 
 ---
 
@@ -29,12 +29,14 @@ The pipeline is split into three modules under `src/`, plus config:
 │  src/remarkable │  │   src/ocr       │  │  src/layout                  │
 │  ─────────────  │  │  ─────────────  │  │  ──────────────────────────  │
 │  • list_notebook│  │  • ocr_image()  │  │  • render_ocr_to_html_multi  │
-│  • render_*_png │  │    (Gemini API, │  │    → layout.html (divs,      │
+│  • render_*_png │  │    (OpenAI SDK, │  │    → layout.html (divs,      │
 │  • pull_xochitl │  │     cache JSON) │  │      links, guides)          │
 │                 │  │                 │  │  • write_ocr_preview_html    │
 │  data/xochitl   │  │  page PNG →     │  │  • render_ocr_overlay        │
 │  → pages/*.png  │  │  ocr/*.json     │  │  (+ chart schema / SVG       │
 │                 │  │                 │  │   for semantic parsing)      │
+│                 │  │                 │  │  • semantic_parse()          │
+│                 │  │                 │  │    (OpenAI SDK)              │
 └─────────────────┘  └─────────────────┘  └──────────────────────────────┘
          │                    │                    │
          └────────────────────┴────────────────────┘
@@ -42,7 +44,7 @@ The pipeline is split into three modules under `src/`, plus config:
                     ┌─────────┴─────────┐
                     │  src/config       │
                     │  .env, DATA_DIR,  │
-                    │  GOOGLE_API_KEY,  │
+                    │  OCR_API_KEY,     │
                     │  REMARKABLE_*     │
                     └───────────────────┘
 ```
@@ -50,9 +52,9 @@ The pipeline is split into three modules under `src/`, plus config:
 | Module | Role | Input → Output |
 |--------|------|----------------|
 | **remarkable** | Device data and rendering | `data/xochitl` (or device via `--pull`) → `output/<name>/pages/*.png` |
-| **ocr** | Handwriting recognition | Page image → Gemini → `output/<name>/ocr/page_*.json` (text, y/x ratio, links, shape, color, confidence) |
+| **ocr** | Handwriting recognition | Page image → LLM (OpenAI SDK) → `output/<name>/ocr/page_*.json` (text, y/x ratio, links, shape, color, confidence) |
 | **layout** | Editable UI | OCR JSON (+ page images) → `layout.html`, `.debug/ocr_preview.html`, `ocr_overlay_*.png` |
-| **config** | Environment | `.env` → `DATA_DIR`, `GOOGLE_API_KEY`, `REMARKABLE_HOST`, etc. |
+| **config** | Environment | `.env` → `DATA_DIR`, `OCR_API_KEY`, `REMARKABLE_HOST`, etc. |
 
 - **Notebook mode:** `list_notebooks()` → for each notebook, `render_notebook_pages()` → for each page, `ocr_image()` → `render_ocr_to_html_multi(all_ocr)`.
 - **Camera mode:** One or more images in `data/xochitl/camera/<project>/` → same OCR + layout pipeline → `output/<project>/`.
@@ -79,7 +81,7 @@ From the project root:
 python main.py
 ```
 
-- **Default:** Uses local OCR cache under `output/<notebook>/ocr/page_*.json` when present; no Gemini API call for cached pages.
+- **Default:** Uses local OCR cache under `output/<notebook>/ocr/page_*.json` when present; no API call for cached pages.
 - **Force re-OCR:** `python main.py --no-cache`
 - **Pull from reMarkable then process:** `python main.py --pull` (fails if device not connected)
 - **Pull + no cache:** `python main.py --pull --no-cache`
@@ -88,18 +90,14 @@ python main.py
   python main.py --camera <name>
   ```
   Output goes to `output/<name>/`. Optional: `--camera <name> --no-cache`
-- **Export to XMind mind map:** Add `--xmind` to also generate `project_name.xmind` (or `notebook_name.xmind`) from the OCR layout; link relationships become parent-child in the mind map.
-  ```bash
-  python main.py --camera test_camera --xmind
-  python main.py --xmind
-  ```
-- **Process a single project (notebook):** `python main.py --project PROJECT_NAME` processes only the notebook whose safe name equals `PROJECT_NAME`. If no such notebook exists in `data/xochitl` and there is no OCR cache under `output/PROJECT_NAME/`, the program exits with code 1 and a friendly message suggesting to check names or use `--camera PROJECT_NAME` for a camera project.
 
 ## Environment
 
 - Python 3.10+
 - Create `.env` in project root (see `.env.example`):
-  - `GOOGLE_API_KEY` — required for Gemini OCR (optional if using cache only)
+  - `OCR_API_KEY` — required for OCR (supports `OPENAI_API_KEY`, `GOOGLE_API_KEY` as fallback)
+  - `OCR_BASE_URL` — optional (e.g. for local models or other providers)
+  - `OCR_MODEL_NAME` — optional (default `gpt-4o`)
   - `DATA_DIR` — xochitl data directory (default `data/xochitl`)
   - `REMARKABLE_HOST` — device host for `--pull` (default `10.11.99.1`)
   - `REMARKABLE_USER` — SSH user (default `root`)
@@ -121,8 +119,10 @@ Automated tests run on every push and pull request via [GitHub Actions](.github/
 
 ```bash
 pip install -r requirements-dev.txt
-pytest tests/ -v
+python3 -m pytest --cov=src --cov=main --cov-report=html tests/ -v
 ```
+
+Testing coverage report is generated in `htmlcov/`.
 
 ## See also
 

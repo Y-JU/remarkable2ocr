@@ -46,9 +46,32 @@ def get_data_dir() -> Path:
 
 
 def get_ocr_api_key() -> str | None:
-    """OCR/Gemini API key from GOOGLE_API_KEY."""
+    """OCR API key (OCR_API_KEY, OPENAI_API_KEY, or GOOGLE_API_KEY)."""
     load_env()
-    return os.environ.get("GOOGLE_API_KEY")
+    return (
+        os.environ.get("GOOGLE_API_KEY")
+        or os.environ.get("OCR_API_KEY")
+        or os.environ.get("OPENAI_API_KEY")
+        or None
+    )
+
+
+def get_ocr_base_url() -> str | None:
+    """OCR API base URL (OCR_BASE_URL or OPENAI_BASE_URL)."""
+    load_env()
+    has_google_key = os.environ.get("GOOGLE_API_KEY") is not None
+    return has_google_key and "https://generativelanguage.googleapis.com/v1beta/openai/" or os.environ.get("OCR_BASE_URL") or os.environ.get("OPENAI_BASE_URL")
+
+
+def get_ocr_model_name() -> str:
+    """OCR model name (OCR_MODEL_NAME or OPENAI_MODEL_NAME). Default: gpt-4o."""
+    load_env()
+    has_google_key = os.environ.get("GOOGLE_API_KEY") is not None
+    return (
+        has_google_key and (os.environ.get("GOOGLE_MODEL_NAME") or "gemini-2.0-flash")
+        or os.environ.get("OCR_MODEL_NAME")
+        or os.environ.get("OPENAI_MODEL_NAME")
+    )
 
 
 def get_remarkable_host() -> str:

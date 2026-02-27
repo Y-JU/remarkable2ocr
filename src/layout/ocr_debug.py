@@ -14,7 +14,7 @@ def _esc(s: str) -> str:
 
 def write_ocr_preview_html(all_ocr_by_page: list[list[dict[str, Any]]], out_path: Path) -> Path:
     """
-    Write ocr_preview.html: per-page table of Gemini OCR rows (text, x_ratio, y_ratio, confidence).
+    Write ocr_preview.html: per-page table of OCR rows (text, x_ratio, y_ratio, confidence).
     """
     out_path = Path(out_path)
     parts = []
@@ -37,7 +37,7 @@ def write_ocr_preview_html(all_ocr_by_page: list[list[dict[str, Any]]], out_path
 </style>
 </head>
 <body>
-<h1>OCR results and coordinates (Gemini)</h1>
+<h1>OCR results and coordinates</h1>
 <p>Per-page <code>text</code>, <code>x_ratio</code>, <code>y_ratio</code>, <code>confidence</code> for debugging.</p>
 """)
     for page_idx, ocr_lines in enumerate(all_ocr_by_page):

@@ -1,15 +1,23 @@
 """
-Image -> OCR data (Gemini) with local cache and confidence.
-Uses google-genai (new SDK).
+Image -> OCR data using OpenAI SDK (supports OpenAI, DeepSeek, etc.)
+with local cache and confidence.
 """
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
 import logging
 import re
 from pathlib import Path
 from typing import Any
+
+from ..config import get_ocr_api_key, get_ocr_base_url, get_ocr_model_name, load_env
+
+try:
+    from openai import OpenAI
+except ImportError:
+    OpenAI = None
 
 logger = logging.getLogger(__name__)
 
@@ -28,23 +36,30 @@ def _heuristic_confidence(text: str) -> float:
     return min(1.0, score)
 
 
+def _encode_image(image_path: Path) -> str:
+    with open(image_path, "rb") as image_file:
+        return base64.b64encode(image_file.read()).decode("utf-8")
+
+
 def _image_to_structured_ocr_impl(
     image_path: Path,
     *,
     api_key: str,
-    model_name: str = "gemini-2.5-flash",
+    base_url: str | None = None,
+    model_name: str | None = None,
     language_hint: str = "Chinese and English",
     request_confidence: bool = True,
 ) -> list[dict[str, Any]]:
-    from google import genai
-    from google.genai import types
+    if OpenAI is None:
+        raise ImportError("Please install openai: pip install openai")
 
-    path = Path(image_path)
-    data = path.read_bytes()
-    mime = "image/png" if path.suffix.lower() == ".png" else "image/jpeg"
+    client = OpenAI(api_key=api_key, base_url=base_url)
 
-    client = genai.Client(api_key=api_key)
-
+    model = model_name or get_ocr_model_name()
+    
+    base64_image = _encode_image(image_path)
+    mime_type = "image/png" if image_path.suffix.lower() == ".png" else "image/jpeg"
+    
     confidence_instruction = '\nAdd a "confidence" field to each item: 0.0–1.0 or "high"/"medium"/"low".' if request_confidence else ""
 
     prompt = f"""This is an image of a handwritten note. Recognize all handwritten text (may include {language_hint}) and output a JSON array by **line**, preserving the **vertical order** as in the image.
@@ -56,30 +71,51 @@ Output only one JSON array, no other text.{confidence_instruction}
 
 Example: [{{ "text": "Requirement", "y_ratio": 0.15, "x_ratio": 0.2, "links": [1, 2], "shape": "box" }}, {{ "text": "Implementation", "y_ratio": 0.3, "x_ratio": 0.2, "color": "blue" }}, ...]
 """
-    contents = [
-        types.Part.from_bytes(data=data, mime_type=mime),
-        types.Part.from_text(text=prompt),
+
+    messages = [
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": prompt},
+                {
+                    "type": "image_url",
+                    "image_url": {
+                        "url": f"data:{mime_type};base64,{base64_image}"
+                    },
+                },
+            ],
+        }
     ]
-    response = client.models.generate_content(
-        model=model_name,
-        contents=contents,
-    )
+
     try:
-        raw = response.text if response else ""
+        response = client.chat.completions.create(
+            model=model,
+            messages=messages,
+            max_tokens=4096,
+        )
+        content = response.choices[0].message.content
     except Exception as e:
-        raise RuntimeError(f"Gemini did not return text: {e}") from e
-    raw = raw.strip()
-    m = re.search(r"\[[\s\S]*\]", raw)
-    if not m:
-        lines = [ln.strip() for ln in raw.splitlines() if ln.strip()]
-        n = max(len(lines), 1)
-        return [{"text": ln, "y_ratio": (i + 0.5) / n, "x_ratio": 0.5} for i, ln in enumerate(lines)]
+        raise RuntimeError(f"OpenAI SDK request failed: {e}") from e
+
+    raw = content.strip() if content else ""
+    
+    # Extract JSON array from markdown code block if present
+    m = re.search(r"```json\s*(\[[\s\S]*\])\s*```", raw)
+    if m:
+        raw = m.group(1)
+    else:
+        m = re.search(r"\[[\s\S]*\]", raw)
+        if m:
+            raw = m.group(0)
+
     try:
-        arr = json.loads(m.group(0))
+        arr = json.loads(raw)
     except json.JSONDecodeError:
+        # Fallback: treat as plain text lines
         lines = [ln.strip() for ln in raw.splitlines() if ln.strip()]
         n = max(len(lines), 1)
         return [{"text": ln, "y_ratio": (i + 0.5) / n, "x_ratio": 0.5} for i, ln in enumerate(lines)]
+
     out = []
     for i, item in enumerate(arr):
         if not isinstance(item, dict):
@@ -90,6 +126,7 @@ Example: [{{ "text": "Requirement", "y_ratio": 0.15, "x_ratio": 0.2, "links": [1
         x = item.get("x_ratio")
         x = 0.5 if x is None or not isinstance(x, (int, float)) else max(0.0, min(1.0, float(x)))
         row = {"text": text, "y_ratio": y, "x_ratio": x}
+        
         if "confidence" in item and item["confidence"] is not None:
             c = item["confidence"]
             if isinstance(c, (int, float)):
@@ -98,13 +135,18 @@ Example: [{{ "text": "Requirement", "y_ratio": 0.15, "x_ratio": 0.2, "links": [1
                 row["confidence"] = c.lower()
             else:
                 row["confidence"] = c
+                
         if "links" in item and isinstance(item["links"], list):
             row["links"] = [int(n) for n in item["links"] if isinstance(n, (int, float)) and 0 <= int(n) < len(arr)]
+            
         if "shape" in item and item.get("shape") in ("box", "circle"):
             row["shape"] = item.get("shape")
+            
         if "color" in item and item.get("color"):
             row["color"] = str(item.get("color")).strip()
+            
         out.append(row)
+        
     out.sort(key=lambda r: (r["y_ratio"], r["x_ratio"]))
     return out
 
@@ -123,8 +165,6 @@ def ocr_image(
     return from cache. cache_key used as cache filename (e.g. page_0 -> page_0.json).
     Returns list of rows: { "text", "y_ratio", "x_ratio", "confidence"? , "links"? , "shape"? , "color"? }.
     """
-    from ..config import get_ocr_api_key, load_env
-
     load_env()
     path = Path(image_path)
     if not path.is_file():
@@ -160,22 +200,28 @@ def ocr_image(
                         row["color"] = str(item.get("color")).strip()
                     out.append(row)
                 out.sort(key=lambda r: (r["y_ratio"], r["x_ratio"]))
-                logger.info("OCR %s: using local cache (no Gemini request)", key)
+                logger.info("OCR %s: using local cache (no API request)", key)
                 return out
         except (json.JSONDecodeError, TypeError, ValueError):
             pass
 
-    # No valid cache: call Gemini (first run or --no-cache)
+    # No valid cache: call API (first run or --no-cache)
     if use_cache and not cache_file.is_file():
-        logger.info("OCR %s: no local cache, calling Gemini API", key)
+        logger.info("OCR %s: no local cache, calling API", key)
     elif not use_cache:
-        logger.info("OCR %s: --no-cache, calling Gemini API", key)
+        logger.info("OCR %s: --no-cache, calling API", key)
 
     api_key = api_key or get_ocr_api_key()
     if not api_key:
-        raise ValueError("Set GOOGLE_API_KEY or pass api_key")
+        raise ValueError("Set OCR_API_KEY (or OPENAI_API_KEY) or pass api_key")
 
-    result = _image_to_structured_ocr_impl(path, api_key=api_key, request_confidence=return_confidence)
+    result = _image_to_structured_ocr_impl(
+        path,
+        api_key=api_key,
+        base_url=get_ocr_base_url(),
+        request_confidence=return_confidence
+    )
+    
     if return_confidence:
         for row in result:
             if "confidence" not in row:

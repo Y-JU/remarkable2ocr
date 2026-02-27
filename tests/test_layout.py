@@ -1,4 +1,4 @@
-"""Tests for layout generation (no Gemini)."""
+"""Tests for layout generation (no LLM)."""
 from __future__ import annotations
 
 from pathlib import Path
