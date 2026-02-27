@@ -20,31 +20,31 @@ The pipeline is split into three modules under `src/`, plus config:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│  main.py                                                                  │
-│  (orchestrates: optional --pull → list/camera → render → OCR → layout)   │
+│  main.py                                                                │
+│  (orchestrates: optional --pull → list/camera → render → OCR → layout)  │
 └─────────────────────────────────────────────────────────────────────────┘
          │                    │                    │
          ▼                    ▼                    ▼
-┌─────────────────┐  ┌─────────────────┐  ┌─────────────────────────────┐
+┌─────────────────┐  ┌─────────────────┐  ┌──────────────────────────────┐
 │  src/remarkable │  │   src/ocr       │  │  src/layout                  │
-│  ─────────────  │  │  ─────────────  │  │  ─────────────────────────  │
-│  • list_notebooks│  │  • ocr_image()  │  │  • render_ocr_to_html_multi  │
+│  ─────────────  │  │  ─────────────  │  │  ──────────────────────────  │
+│  • list_notebook│  │  • ocr_image()  │  │  • render_ocr_to_html_multi  │
 │  • render_*_png │  │    (Gemini API, │  │    → layout.html (divs,      │
 │  • pull_xochitl │  │     cache JSON) │  │      links, guides)          │
-│                 │  │                 │  │  • write_ocr_preview_html     │
+│                 │  │                 │  │  • write_ocr_preview_html    │
 │  data/xochitl   │  │  page PNG →     │  │  • render_ocr_overlay        │
 │  → pages/*.png  │  │  ocr/*.json     │  │  (+ chart schema / SVG       │
 │                 │  │                 │  │   for semantic parsing)      │
-└─────────────────┘  └─────────────────┘  └─────────────────────────────┘
+└─────────────────┘  └─────────────────┘  └──────────────────────────────┘
          │                    │                    │
          └────────────────────┴────────────────────┘
                               │
                     ┌─────────┴─────────┐
                     │  src/config       │
-                    │  .env, DATA_DIR, │
-                    │  GOOGLE_API_KEY, │
-                    │  REMARKABLE_*    │
-                    └──────────────────┘
+                    │  .env, DATA_DIR,  │
+                    │  GOOGLE_API_KEY,  │
+                    │  REMARKABLE_*     │
+                    └───────────────────┘
 ```
 
 | Module | Role | Input → Output |
@@ -108,6 +108,15 @@ For `--pull`, ensure the reMarkable is on the same network (e.g. USB or Wi‑Fi)
 - `output/<notebook_or_project>/ocr/` — OCR JSON cache (`page_0.json`, …)
 - `output/<notebook_or_project>/layout.html` — multi-page layout (draggable divs, connectors, alignment guides)
 - `output/<notebook_or_project>/.debug/` — `ocr_preview.html`, `ocr_overlay_*.png`
+
+## Testing
+
+Automated tests run on every push and pull request via [GitHub Actions](.github/workflows/test.yml). To run locally:
+
+```bash
+pip install -r requirements-dev.txt
+pytest tests/ -v
+```
 
 ## See also
 
