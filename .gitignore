@@ -26,6 +26,9 @@ data/.gemini_cache/
 # macOS
 .DS_Store
 
+# Pytest
+.pytest_cache/
+
 # Sample images (keep local only; may contain sensitive content)
 sample/expected.png
 sample/source.png
